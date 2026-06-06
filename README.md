@@ -33,6 +33,12 @@ pdflatex claude-biokt-slides.tex  # run twice for cross-references
 
 Requires a standard TeX Live installation with the Metropolis beamer theme and Fira Sans fonts.
 
+## License
+
+The slides and LaTeX source are released under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). You are free to share and adapt the material with attribution.
+
+Included logos: the Claude AI logo is public domain (sourced from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Claude_AI_logo.svg)) but may be protected as a trademark by Anthropic. The UPV/EHU logo is property of the University of the Basque Country and used here for identification purposes only.
+
 ## Author
 
 David De Sancho  
