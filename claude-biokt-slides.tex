@@ -197,7 +197,7 @@
       \begin{itemize}[label=\textbullet]\setlength\itemsep{3pt}
         \item What Claude Code is (and is not)
         \item Installation, interfaces, operating modes
-        \item \texttt{CLAUDE.md}, skills, memory, sessions
+        \item \texttt{CLAUDE.md}, skills \& agents, memory, sessions
         \item Cost, privacy, and honest caveats
       \end{itemize}
       \vspace{0.7em}
@@ -498,6 +498,150 @@
   The example is deliberately general: \texttt{/review-plan} stress-tests any plan -- a simulation protocol, a grant application, an analysis strategy -- by applying structured expert critique. It is useful to anyone in the room regardless of field.\par
   Scope matters: global skills are available on every machine and shared via git; project-local skills live inside the project directory and are only loaded when Claude runs there. This allows project-specific protocols without polluting the global toolkit.\par
   Skills are loaded at startup -- restart Claude Code after adding a new one.}
+\end{frame}
+
+% ---- Slide: Writing a Skill ----
+\begin{frame}[fragile]{Writing a Skill: Template Syntax}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+\begin{lstlisting}
+# ~/.claude/skills/my-skill.md
+
+# Skill Name
+
+One or two sentences describing what
+this skill does and when to trigger it.
+
+## Arguments
+
+$ARGUMENTS can include:
+- molecule name, charge, basis set
+
+## Instructions
+
+### Step 1: Read context
+Check the current directory for
+relevant input files.
+
+### Step 2: Execute
+Run the protocol, validating each step.
+
+### Step 3: Output
+Report results in this format:
+...
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \textbf{\color{biokteal}Key elements}
+      \begin{itemize}[label=\textbullet]\setlength\itemsep{4pt}
+        \item \textbf{No YAML frontmatter} --- plain Markdown
+        \item \textbf{Description} --- 1--2 sentences at the top; Claude reads this to decide when to invoke it
+        \item \textbf{\texttt{\$ARGUMENTS}} --- whatever the user types after \texttt{/skill-name}
+        \item \textbf{Step sections} --- each \texttt{\#\#\# Step N} is a concrete action with clear output
+      \end{itemize}
+      \vspace{0.5em}
+      \begin{block}{}
+        \small Start simple; add steps iteratively as you test. One working step beats five broken ones.
+      \end{block}
+    \end{column}
+  \end{columns}
+  \note{Skills are plain Markdown -- no special format required beyond the structure shown. Claude reads the file top to bottom and follows the instructions.\par
+  The description at the top is the most important part: it is what tells Claude (and you) when the skill should be triggered. Keep it specific.\par
+  \texttt{\$ARGUMENTS} is replaced at runtime with whatever the user types after the skill name. For \texttt{/dft-homo-lumo guanidinium +1}, \texttt{\$ARGUMENTS} becomes ``guanidinium +1''. Skills that take no input can omit the Arguments section.\par
+  The step structure is a guideline, not a requirement. For simple workflows you might have a single Instructions section. For complex protocols, numbered steps help Claude track progress and help you debug when something goes wrong.\par
+  Practical advice: start with the simplest version that does something useful, test it on a real task, and add detail only where the output is insufficient.}
+\end{frame}
+
+% ---- Slide: Skills vs Agents ----
+\begin{frame}{Skills vs.\ Agents}
+  \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      \begin{block}{Skills --- \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/.claude/skills/}}
+        \small Run \emph{inside} the main conversation.
+        \begin{itemize}[label=\textbullet]\setlength\itemsep{3pt}
+          \item Full chat history available
+          \item Interactive; back-and-forth with user
+          \item Triggered by \texttt{/skill-name}
+        \end{itemize}
+        \vspace{0.3em}
+        \textbf{Use when:} user input needed mid-task, or conversation context matters.
+      \end{block}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \begin{block}{Agents --- \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/.claude/agents/}}
+        \small Run in an \emph{isolated} context window.
+        \begin{itemize}[label=\textbullet]\setlength\itemsep{3pt}
+          \item No prior conversation; returns single result
+          \item Autonomous; own model and tool list
+          \item Can run in \alert{parallel}
+        \end{itemize}
+        \vspace{0.3em}
+        \textbf{Use when:} independent evaluation, parallel workloads, or focused bounded tasks.
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.5em}
+  \begin{center}
+    \small\textit{Example:} \texttt{/bash-parallelize} spawns N parallel agents for N independent replicas or mutants.
+  \end{center}
+  \note{Skills and agents represent two fundamentally different execution models.\par
+  Skills run in the main conversation and have access to everything: the full chat history, all tools, the current context. They are interactive -- Claude can ask questions and the user can redirect mid-task. Most of the BioKT library is implemented as skills.\par
+  Agents are sandboxed. They launch in a fresh context window with no memory of the current conversation. They receive a task, execute it autonomously, and return a result. They can run in parallel -- this is what \texttt{/bash-parallelize} exploits.\par
+  The key question when choosing: does this task need my input along the way, or can I describe it completely upfront and let it run? If the former: skill. If the latter: agent.}
+\end{frame}
+
+% ---- Slide: Writing an Agent ----
+\begin{frame}[fragile]{Writing an Agent: Template Syntax}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+\begin{lstlisting}
+# ~/.claude/agents/check-protocol.md
+
+---
+name: check-protocol
+description: >
+  Review simulation setup files for
+  physical consistency and completeness
+model: sonnet
+tools:
+  - Read
+  - Glob
+  - Grep
+---
+
+You are an independent simulation
+reviewer. Check the mdp files, topology,
+and SLURM script in the project for:
+- Thermostat/barostat mismatches
+- Cutoff values outside best practice
+- Missing or inconsistent parameters
+
+Report findings as a numbered list.
+Do not modify any files.
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \textbf{\color{biokteal}YAML frontmatter}
+      \begin{itemize}[label=\textbullet]\setlength\itemsep{4pt}
+        \item \textbf{name} --- unique identifier
+        \item \textbf{description} --- tells Claude when to invoke this agent
+        \item \textbf{model} --- \texttt{sonnet} / \texttt{opus} / \texttt{haiku}
+        \item \textbf{tools} --- restrict to what is needed; read-only for review tasks
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{\color{biokteal}Body (plain text)}
+      \begin{itemize}[label=\textbullet]\setlength\itemsep{3pt}
+        \item Role description
+        \item Specific checks or steps
+        \item Output format
+        \item Explicit scope limits
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{The agent file is a Markdown file with YAML frontmatter -- identical to a skill file in structure, but stored in \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/.claude/agents/} and loaded differently.\par
+  \texttt{name} is the identifier. \texttt{description} matters: Claude uses it to decide whether to spawn this agent when asked to delegate a task. \texttt{model} lets you assign a cheaper model for review tasks that do not need full Opus capability -- Sonnet is the right choice for most review tasks. \texttt{tools} is the key safety feature: restricting to read-only tools (Read, Glob, Grep) prevents the agent from modifying files unexpectedly.\par
+  The body is plain prose instructions. Always include: the agent's role (``you are an independent reviewer''), what specifically to check, how to format the output, and what NOT to do (``do not modify any files''). Clear scope limits are important -- an agent that is not told to stay read-only may not.\par
+  In the BioKT lab context, review agents are useful for checking simulation protocols before submission -- catching errors that the person who set up the simulation might overlook precisely because they wrote it.}
 \end{frame}
 
 % ---- Slide 7: Memory System ----
@@ -1185,6 +1329,8 @@
         \item A researcher who cannot evaluate the output is not doing research --- they are transcribing an AI
         \item Deep intuitions about your system take years to build; they cannot be borrowed
       \end{itemize}
+      \vspace{0.4em}
+      {\small Mollick calls this \alert{\textbf{cognitive surrender}}: delegating your thinking so completely that you can no longer evaluate the output --- even when it is wrong.}
     \end{column}
     \begin{column}{0.42\textwidth}
       \begin{alertblock}{The rule}
@@ -1199,6 +1345,7 @@
   \end{columns}
   \note{This is the most important slide in the talk for students and postdocs.\par
   The greatest danger is not that Claude produces a wrong trajectory or a bad mdp file -- those failures are visible. The danger is that a student outsources the thinking that would have built their own understanding. A PhD is not a credential for running simulations; it is a training in the judgment to know what the simulations mean and where they can go wrong.\par
+  Mollick coins the term ``cognitive surrender'' for this failure mode. A Wharton study found that people who simply let AI do the work -- without asking it to explain or engaging critically -- followed wrong AI answers 80\% of the time, and afterwards could not explain what had been done. Those who asked the AI to reason aloud, or used it for only part of the task, were largely protected.\par
   Claude amplifies what you bring to it. Use it to do faster what you already know how to do. Use it to handle the tedious and the routine. But the hard conceptual work -- understanding your system, designing the right question, interpreting the result -- that is yours and cannot be delegated.\par
   The lab's scientific standards in CLAUDE.md are a partial answer to this: they force Claude to ask, validate, and surface uncertainty. But they are not a substitute for the researcher's own judgment.}
 \end{frame}
