@@ -470,6 +470,8 @@
         \item \textbf{Global:} \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/.claude/skills/} --- everywhere
         \item \textbf{Local:} \texttt{.claude/skills/} --- project only; in git
       \end{itemize}
+      \vspace{0.2em}
+      {\scriptsize\color{biokteal!70} The BioKT library lives in the shared repo \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/Software/Claude/Skills-BIOKT}, symlinked into \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/.claude/skills/}.\par}
       \vspace{0.4em}
       {\small\color{biokteal!70} Not all \texttt{/commands} are skills --- \texttt{/clear}, \texttt{/compact}, \texttt{/help} are built-in CLI commands that execute directly, not through Claude.}
     \end{column}
@@ -727,7 +729,7 @@ Do not modify any files.
   \texttt{/compact <hint>} is the workhorse: it summarises the conversation so far and continues in the same session. The hint is critical -- without it, important details often disappear on long or branching work. Good hint: ``we are setting up NPT equilibration for system X; keep the mdp choices and the topology decisions.''\par
   \texttt{/clear} is for a genuine fresh start -- unrelated task, different project. No summary is kept.\par
   \texttt{/rewind} (\texttt{Esc Esc}) is a selective undo: you can keep file edits and drop a circular discussion, or keep the dialogue and retry a bad edit. Four restore options are available.\par
-  In the BioKT setup, the PreCompact hook runs \texttt{/ctxt save} automatically before compaction, so session state is always checkpointed.}
+  In the BioKT setup, the PreCompact hook runs \texttt{/checkpoint save} automatically before compaction, so session state is always checkpointed.}
 \end{frame}
 
 % ---- Slide 8: Settings & Hooks ----
@@ -754,7 +756,7 @@ Do not modify any files.
 "hooks": {
   "PreCompact": [{
     "type": "prompt",
-    "prompt": "Run /ctxt save
+    "prompt": "Run /checkpoint save
     to checkpoint the session
     before compaction."
   }]
@@ -766,7 +768,7 @@ Do not modify any files.
   \end{columns}
   \note{The permissions allowlist is a significant quality-of-life improvement. Without it, every read-only operation -- \texttt{git status}, \texttt{ls}, \texttt{python --version} -- requires manual approval. Adding common safe commands to the allowlist means Claude can execute them without interrupting your flow.\par
   The model setting balances capability and cost. Sonnet is the default: faster and cheaper, suitable for most tasks. Opus is more capable for complex reasoning.\par
-  The PreCompact hook shown here is one we use in the lab: when the context window fills, Claude automatically runs \texttt{/ctxt save} to checkpoint the session state before compaction.\par
+  The PreCompact hook shown here is one we use in the lab: when the context window fills, Claude automatically runs \texttt{/checkpoint save} to checkpoint the session state before compaction.\par
   \texttt{settings.local.json} provides machine-specific overrides -- useful when different machines need different permissions or paths.\par
   MCP (Model Context Protocol) is worth mentioning briefly. It allows Claude to connect to external tools and data sources -- a local database, a file server, a domain-specific API. We have not yet explored MCP in the lab, but it is a natural next step for more advanced integrations.}
 \end{frame}
@@ -819,7 +821,7 @@ Do not modify any files.
     \node[wbox] (cc) {Claude Code};
 
     \node[tbox, above left=0.75cm and 1.4cm of cc]  (cm)  {CLAUDE.md\\{\tiny global instructions}};
-    \node[tbox, above=0.9cm of cc]                   (sk)  {25 Skills\\{\tiny BIOKT library}};
+    \node[tbox, above=0.9cm of cc]                   (sk)  {20 Skills\\{\tiny BIOKT library}};
     \node[tbox, above right=0.75cm and 1.4cm of cc] (mem) {Project Memory\\{\tiny 16 projects}};
     \node[tbox, below=0.75cm of cc]                  (cfg) {settings.json\\{\tiny model, perms, hooks}};
 
@@ -838,7 +840,7 @@ Do not modify any files.
       (mac.north) to node[above, font=\tiny\bfseries, color=bioktorange]{\texttt{/gh-propagate}} (ws.north);
   \end{tikzpicture}
   \end{center}
-  \note{This diagram shows the full configuration. Claude Code runs on five interactive machines and is connected to four configuration layers: CLAUDE.md (global instructions), 25 skills (the BIOKT library), project memory (16 active research projects), and settings.json.\par
+  \note{This diagram shows the full configuration. Claude Code runs on five interactive machines and is connected to four configuration layers: CLAUDE.md (global instructions), 20 skills (the BIOKT library), project memory (16 active research projects), and settings.json.\par
   The two HPC clusters -- agamede and hyperion -- do not have Claude installed because they use strict job scheduler policies. They receive SLURM scripts prepared by Claude on the interactive machines.\par
   \texttt{/gh-propagate} keeps everything in sync: update CLAUDE.md or add a skill on the Mac, and the change is pushed to a git repository and pulled on all other machines with a single command.}
 \end{frame}
@@ -903,7 +905,7 @@ Do not modify any files.
   \end{center}
   \vspace{0.5em}
   \begin{itemize}
-    \item \textbf{\texttt{/gh-propagate}} syncs \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/.claude} to all \checkmark\ machines via git
+    \item \textbf{\texttt{/gh-propagate}} syncs \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/.claude} and \texttt{{\raise.17ex\hbox{$\scriptstyle\sim$}}/Software/Claude/Skills-BIOKT} to all \checkmark\ machines via git
     \item HPC clusters receive SLURM scripts prepared on interactive machines
   \end{itemize}
   \note{The table distinguishes two categories: interactive machines where Claude is installed, and HPC clusters where it is not.\par
@@ -972,19 +974,20 @@ Do not modify any files.
     Parameterization                   & \texttt{/amber-parameterize} & SMILES $\to$ GAFF2 $\to$ GROMACS (.itp) \\
     Quantum chem.                      & \texttt{/dft-homo-lumo}      & PySCF DFT $\to$ HOMO/LUMO energies \\
     \midrule
-    \multirow{3}{*}{Infrastructure}    & \texttt{/jobs}               & Track simulation jobs in JOBS.md \\
+    \multirow{4}{*}{Infrastructure}    & \texttt{/jobs}               & Track simulation jobs in JOBS.md \\
+                                       & \texttt{/diy}                & Execute proposed commands / actions \\
                                        & \texttt{/sim-paths}          & SSH pre-flight file check \\
                                        & \texttt{/bash-parallelize}   & Parallel subagents for independent loops \\
     \midrule
-    \multirow{4}{*}{Knowledge mgmt}   & \texttt{/overview}           & Aggregate TODO/CONTEXT across machines \\
-                                       & \texttt{/ctxt}               & Save/restore session context \\
+    \multirow{4}{*}{Knowledge mgmt}   & \texttt{/overview}           & Aggregate TODO/CHECKPOINT across machines \\
+                                       & \texttt{/checkpoint}               & Save/restore session context \\
                                        & \texttt{/bitacora}           & Append to lab notebook \\
                                        & \texttt{/tyler}              & PDF papers $\to$ markdown wiki \\
     \bottomrule
   \end{tabular}
   }
   \end{center}
-  \note{This table gives an overview of all 13 BioKT skills.\par
+  \note{This table shows a selection of the most-used BioKT skills; the full library has 20.\par
   Simulation prep -- \texttt{/gmx-prep} and \texttt{/gmx-install} -- form the foundation. These cover everything from building GROMACS from source to running a complete equilibration and production protocol.\par
   Enhanced sampling -- the three PLUMED skills -- cover our main methods for free energy calculations. Each suits different situations (discussed in detail on the next slides).\par
   Infrastructure skills solve real operational pain points: tracking jobs, verifying files before submission, and parallelising independent tasks.\par
@@ -1228,11 +1231,11 @@ Do not modify any files.
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \begin{block}{\texttt{/overview}}
-        \small Aggregates \texttt{CONTEXT.md} and \texttt{TODO.md} from all interactive machines via SSH. Produces a prioritised action plan for the day or week. Run from the local Mac.
+        \small Aggregates \texttt{CHECKPOINT.md} and \texttt{TODO.md} from all interactive machines via SSH. Produces a prioritised action plan for the day or week. Run from the local Mac.
       \end{block}
       \vspace{0.5em}
-      \begin{block}{\texttt{/ctxt save} / \texttt{load}}
-        \small Checkpoints the current session state to \texttt{CONTEXT.md}. Run before \texttt{/clear} to avoid losing context. Restored automatically at next session start if the file is present in the project directory.
+      \begin{block}{\texttt{/checkpoint save} / \texttt{load}}
+        \small Checkpoints the current session state to \texttt{CHECKPOINT.md}. Run before \texttt{/clear} to avoid losing context. Restored automatically at next session start if the file is present in the project directory.
       \end{block}
     \end{column}
     \begin{column}{0.48\textwidth}
@@ -1246,8 +1249,8 @@ Do not modify any files.
     \end{column}
   \end{columns}
   \note{These four skills address a different problem: keeping research organised and recoverable across sessions and machines.\par
-  \texttt{/overview} is the morning routine. Run it from the local Mac; it SSHes into all interactive machines, reads their CONTEXT.md and TODO.md files, and produces a single prioritised action plan. It answers ``what should I work on today?'' across the whole infrastructure.\par
-  \texttt{/ctxt save} and \texttt{load} address the ephemeral nature of Claude sessions. \texttt{/ctxt save} writes a session summary to CONTEXT.md. Running \texttt{/ctxt load} at the next session start restores that context. The PreCompact hook triggers \texttt{/ctxt save} automatically when the context window fills.\par
+  \texttt{/overview} is the morning routine. Run it from the local Mac; it SSHes into all interactive machines, reads their CHECKPOINT.md and TODO.md files, and produces a single prioritised action plan. It answers ``what should I work on today?'' across the whole infrastructure.\par
+  \texttt{/checkpoint save} and \texttt{load} address the ephemeral nature of Claude sessions. \texttt{/checkpoint save} writes a session summary to CHECKPOINT.md. Running \texttt{/checkpoint load} at the next session start restores that context. The PreCompact hook triggers \texttt{/checkpoint save} automatically when the context window fills.\par
   \texttt{/bitacora} maintains LABNOTEBOOK.md -- a chronological record of what was done, what decisions were made, and what the next steps are.\par
   \texttt{/tyler} converts PDFs into a token-efficient markdown wiki, making your literature accessible to Claude without pasting full-text content.}
 \end{frame}
@@ -1278,14 +1281,14 @@ Do not modify any files.
     \item \textbf{Setup:} Claude writes mdp files, prepares topology, generates SLURM script
     \item \textbf{Submit:} \texttt{/diy} executes proposed commands; \texttt{/jobs} records the new entry
     \item \textbf{Analyse:} notebooks with MDtraj, numpy, pandas --- Claude helps debug and extend
-    \item \textbf{End of session:} \texttt{/bitacora} captures decisions; \texttt{/ctxt save}; then \texttt{/clear}
+    \item \textbf{End of session:} \texttt{/bitacora} captures decisions; \texttt{/checkpoint save}; then \texttt{/clear}
   \end{itemize}
   \note{This slide shows how all the components work together in a typical day.\par
   Morning: \texttt{/overview} gives situational awareness -- what finished overnight, what is still running, what failed. You can plan the day without opening multiple SSH sessions.\par
   Setup: you ask Claude to prepare a new simulation. It asks clarifying questions, writes the mdp files, prepares the topology, and generates a SLURM submission script. Nothing is submitted yet.\par
   Verify: \texttt{/sim-paths} SSHes to the target machine and confirms all required files are present. If anything is missing, it reports exactly what and where.\par
   Submit and track: \texttt{/diy} executes the proposed submission command. \texttt{/jobs} records the new job in JOBS.md.\par
-  End of session: \texttt{/bitacora} appends an entry to LABNOTEBOOK.md capturing what was done. \texttt{/ctxt save} checkpoints the context. \texttt{/clear} resets the window ready for the next task.\par
+  End of session: \texttt{/bitacora} appends an entry to LABNOTEBOOK.md capturing what was done. \texttt{/checkpoint save} checkpoints the context. \texttt{/clear} resets the window ready for the next task.\par
   This workflow makes research more organised and reproducible -- without changing the fundamental way we do science.}
 \end{frame}
 
@@ -1306,7 +1309,7 @@ Do not modify any files.
       \begin{itemize}[label=\textbullet]\setlength\itemsep{4pt}
         \item Use \texttt{/gmx-prep} for your next simulation setup
         \item Run \texttt{/overview} each morning to track active work
-        \item End sessions with \texttt{/bitacora} and \texttt{/ctxt save}
+        \item End sessions with \texttt{/bitacora} and \texttt{/checkpoint save}
         \item Add skills as your workflows mature
       \end{itemize}
       \vspace{0.5em}
